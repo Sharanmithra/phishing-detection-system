@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PhishGuard AI — Phishing Detection System</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=Space+Mono:wght@400;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #07070f;
+  --surface: #0f0f1a;
+  --surface2: #16162a;
+  --surface3: #1c1c2e;
+  --border: rgba(255,255,255,0.06);
+  --border-hi: rgba(255,255,255,0.13);
+  --text: #eeeef5;
+  --muted: rgba(238,238,245,0.42);
+  --accent: #7c6dfa;
+  --accent2: #a78bfa;
+  --danger: #f43f5e;
+  --safe: #10b981;
+  --warn: #f59e0b;
+  --ff-d: 'Syne', sans-serif;
+  --ff-m: 'Space Mono', monospace;
+  --ff-b: 'Inter', sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--ff-b);min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;
+  background-image:linear-gradient(rgba(124,109,250,0.03) 1px,transparent 1px),
+  linear-gradient(90deg,rgba(124,109,250,0.03) 1px,transparent 1px);
+  background-size:44px 44px;pointer-events:none;z-index:0}
+.orb{position:fixed;border-radius:50%;filter:blur(100px);pointer-events:none;z-index:0;opacity:.3}
+.o1{width:700px;height:700px;background:radial-gradient(circle,rgba(124,109,250,.4),transparent 70%);top:-250px;left:-250px;animation:drift 14s ease-in-out infinite alternate}
+.o2{width:500px;height:500px;background:radial-gradient(circle,rgba(167,139,250,.25),transparent 70%);bottom:-150px;right:-150px;animation:drift 10s ease-in-out infinite alternate-reverse}
+.o3{width:300px;height:300px;background:radial-gradient(circle,rgba(59,130,246,.2),transparent 70%);top:45%;left:55%;animation:drift 16s ease-in-out infinite alternate}
+@keyframes drift{from{transform:translate(0,0)}to{transform:translate(40px,30px)}}
+.wrap{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column}
+
+/* ── Nav ── */
+nav{display:flex;align-items:center;justify-content:space-between;padding:18px 40px;
+  border-bottom:1px solid var(--border);backdrop-filter:blur(20px);
+  background:rgba(7,7,15,.75);position:sticky;top:0;z-index:200}
+.logo{display:flex;align-items:center;gap:10px;font-family:var(--ff-d);font-size:19px;font-weight:800;letter-spacing:-.5px}
+.logo-icon{width:34px;height:34px;background:linear-gradient(135deg,var(--accent),var(--accent2));
+  border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:17px}
+.logo em{font-style:normal;color:var(--accent)}
+.nav-r{display:flex;align-items:center;gap:10px}
+.pill{font-family:var(--ff-m);font-size:10px;letter-spacing:2px;padding:4px 10px;border-radius:4px}
+.pill-acc{border:1px solid rgba(16,185,129,.3);color:var(--safe);background:rgba(16,185,129,.07)}
+.pill-mod{border:1px solid rgba(124,109,250,.3);color:var(--accent);background:rgba(124,109,250,.07)}
+/* server status dot */
+#statusDot{width:8px;height:8px;border-radius:50%;background:#444;display:inline-block;margin-right:4px;transition:background .3s}
+#statusDot.ok{background:var(--safe)}#statusDot.err{background:var(--danger)}
+
+/* ── Hero ── */
+.hero{flex:1;display:flex;flex-direction:column;align-items:center;padding:52px 24px 48px;text-align:center}
+.eyebrow{font-family:var(--ff-m);font-size:10px;letter-spacing:3px;color:var(--accent);text-transform:uppercase;
+  padding:5px 14px;border:1px solid rgba(124,109,250,.25);border-radius:100px;background:rgba(124,109,250,.07);
+  margin-bottom:22px;display:inline-block;animation:fu .5s ease both}
+h1{font-family:var(--ff-d);font-size:clamp(36px,6vw,66px);font-weight:800;line-height:1.06;letter-spacing:-2px;
+  margin-bottom:14px;animation:fu .5s .08s ease both}
+h1 em{font-style:normal;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+h1 span{background:linear-gradient(135deg,#fff,rgba(255,255,255,.5));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.sub{font-size:15px;font-weight:300;color:var(--muted);max-width:460px;line-height:1.75;margin-bottom:36px;animation:fu .5s .16s ease both}
+@keyframes fu{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── Server status banner ── */
+.server-banner{width:100%;max-width:740px;border-radius:12px;padding:12px 18px;margin-bottom:16px;
+  display:flex;align-items:flex-start;gap:10px;font-size:12px;line-height:1.6;
+  animation:fu .5s .2s ease both;transition:all .3s}
+.server-banner.connecting{background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);color:rgba(245,158,11,.8)}
+.server-banner.connected{background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.2);color:rgba(16,185,129,.9)}
+.server-banner.offline{background:rgba(244,63,94,.06);border:1px solid rgba(244,63,94,.2);color:rgba(244,63,94,.85)}
+.server-banner strong{font-weight:600}
+
+/* ── Main card ── */
+.card{width:100%;max-width:740px;background:var(--surface);border:1px solid var(--border);
+  border-radius:20px;padding:32px;position:relative;overflow:hidden;animation:fu .5s .22s ease both;
+  transition:border-color .4s}
+.card::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(124,109,250,.03),transparent 60%);pointer-events:none}
+.card.is-phishing{border-color:rgba(244,63,94,.35)}.card.is-safe{border-color:rgba(16,185,129,.35)}
+
+/* ── Input ── */
+.inp-label{font-family:var(--ff-m);font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:10px;display:block}
+.inp-row{display:flex;gap:10px;align-items:stretch;background:var(--surface2);border:1px solid var(--border);
+  border-radius:12px;padding:5px 5px 5px 14px;transition:border-color .2s,box-shadow .2s}
+.inp-row:focus-within{border-color:rgba(124,109,250,.4);box-shadow:0 0 0 3px rgba(124,109,250,.07)}
+.inp-pre{color:var(--muted);font-size:12px;align-self:center;font-family:var(--ff-m);flex-shrink:0}
+#urlInput{flex:1;background:none;border:none;outline:none;color:var(--text);font-family:var(--ff-m);
+  font-size:13px;padding:10px 0;min-width:0}
+#urlInput::placeholder{color:rgba(238,238,245,.2)}
+.btn-go{flex-shrink:0;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:9px;
+  padding:11px 22px;color:#fff;font-family:var(--ff-d);font-size:13px;font-weight:700;
+  cursor:pointer;letter-spacing:.3px;transition:opacity .15s,transform .15s;display:flex;align-items:center;gap:7px;white-space:nowrap}
+.btn-go:hover:not(:disabled){opacity:.88;transform:translateY(-1px)}.btn-go:active:not(:disabled){transform:scale(.97)}
+.btn-go:disabled{opacity:.4;cursor:not-allowed}
+
+/* ── Quick buttons ── */
+.quick-row{margin-top:13px;display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+.ql{font-size:10px;color:var(--muted);font-family:var(--ff-m);letter-spacing:1px}
+.qb{font-size:11px;font-family:var(--ff-m);padding:4px 9px;border:1px solid var(--border-hi);
+  border-radius:6px;background:transparent;color:var(--muted);cursor:pointer;transition:all .15s}
+.qb:hover{color:var(--text);border-color:rgba(255,255,255,.2);background:var(--surface2)}
+.qb.bad{border-color:rgba(244,63,94,.25);color:rgba(244,63,94,.55)}
+.qb.bad:hover{border-color:var(--danger);color:var(--danger);background:rgba(244,63,94,.06)}
+
+/* ── Result area ── */
+#resultArea{margin-top:28px;display:none}
+.sep{width:100%;height:1px;background:var(--border);margin-bottom:20px}
+
+/* ── Loader ── */
+.loader{display:flex;align-items:center;justify-content:center;gap:12px;padding:28px;
+  color:var(--muted);font-family:var(--ff-m);font-size:12px}
+.dots{display:flex;gap:5px}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--accent);opacity:.25;animation:pulse 1.2s ease-in-out infinite}
+.dot:nth-child(2){animation-delay:.2s}.dot:nth-child(3){animation-delay:.4s}
+@keyframes pulse{0%,100%{opacity:.25;transform:scale(1)}50%{opacity:1;transform:scale(1.3)}}
+
+/* ── URL display ── */
+.url-box{background:var(--surface2);border:1px solid var(--border);border-radius:10px;
+  padding:12px 16px;margin-bottom:16px;font-family:var(--ff-m);font-size:12px;
+  word-break:break-all;line-height:2}
+.u-scheme{color:#7c6dfa}.u-domain{color:#10b981}.u-path{color:#f59e0b}.u-query{color:#ec4899}
+.u-sus{color:var(--danger);background:rgba(244,63,94,.1);border-radius:3px;padding:0 3px}
+
+/* ── Verdict ── */
+.verdict{display:flex;align-items:center;gap:14px;padding:20px;border-radius:14px;
+  border:1px solid transparent;margin-bottom:18px;animation:pop .4s cubic-bezier(.34,1.56,.64,1) both}
+.verdict.phishing{background:rgba(244,63,94,.07);border-color:rgba(244,63,94,.25)}
+.verdict.safe{background:rgba(16,185,129,.07);border-color:rgba(16,185,129,.25)}
+@keyframes pop{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
+.v-icon{width:52px;height:52px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:24px}
+.v-icon.phishing{background:rgba(244,63,94,.15)}.v-icon.safe{background:rgba(16,185,129,.15)}
+.v-title{font-family:var(--ff-d);font-size:20px;font-weight:800;letter-spacing:-.3px;margin-bottom:4px}
+.v-title.phishing{color:var(--danger)}.v-title.safe{color:var(--safe)}
+.v-desc{font-size:12px;color:var(--muted);line-height:1.65;max-width:460px}
+
+/* ── Confidence ── */
+.conf-wrap{margin-bottom:20px}
+.conf-labels{display:flex;justify-content:space-between;font-size:11px;font-family:var(--ff-m);color:var(--muted);margin-bottom:6px}
+.conf-bar{height:5px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden}
+.conf-fill{height:100%;border-radius:3px;transition:width .9s cubic-bezier(.4,0,.2,1);width:0%}
+.conf-fill.phishing{background:linear-gradient(90deg,var(--warn),var(--danger))}
+.conf-fill.safe{background:linear-gradient(90deg,#34d399,var(--safe))}
+
+/* ── Signal chips ── */
+.sig-heading{font-family:var(--ff-m);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.sig-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:7px}
+.sig{background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+  padding:9px 12px;display:flex;justify-content:space-between;align-items:center;
+  font-size:12px;animation:fu .3s ease both}
+.sn{color:var(--muted)}.sv{font-family:var(--ff-m);font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px}
+.sv.ok{background:rgba(16,185,129,.1);color:var(--safe)}
+.sv.bad{background:rgba(244,63,94,.1);color:var(--danger)}
+.sv.neu{background:rgba(255,255,255,.05);color:var(--muted)}
+
+/* ── Confidence number badge ── */
+.conf-badge{display:inline-block;font-family:var(--ff-m);font-size:11px;font-weight:700;
+  padding:3px 10px;border-radius:6px;margin-left:8px;vertical-align:middle}
+.conf-badge.phishing{background:rgba(244,63,94,.12);color:var(--danger)}
+.conf-badge.safe{background:rgba(16,185,129,.12);color:var(--safe)}
+
+/* ── Error box ── */
+.error-box{background:rgba(244,63,94,.07);border:1px solid rgba(244,63,94,.25);border-radius:10px;
+  padding:14px 18px;font-size:13px;color:var(--danger);font-family:var(--ff-m)}
+
+/* ── Stats ── */
+.stats{display:flex;gap:0;margin-top:36px;border:1px solid var(--border);border-radius:14px;overflow:hidden;
+  max-width:740px;width:100%;animation:fu .5s .38s ease both}
+.stat{flex:1;padding:18px 20px;text-align:center;border-right:1px solid var(--border);background:var(--surface)}
+.stat:last-child{border-right:none}
+.snum{font-family:var(--ff-d);font-size:24px;font-weight:800;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  display:block;margin-bottom:3px}
+.slbl{font-size:10px;color:var(--muted);font-family:var(--ff-m);letter-spacing:1px;text-transform:uppercase}
+
+/* ── History ── */
+.hist-wrap{width:100%;max-width:740px;margin-top:18px;animation:fu .5s .45s ease both}
+.hist-head{font-family:var(--ff-m);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:9px}
+.hist-list{display:flex;flex-direction:column;gap:5px}
+.hist-item{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:9px 13px;
+  font-size:12px;cursor:pointer;transition:border-color .15s;animation:fu .3s ease both}
+.hist-item:hover{border-color:var(--border-hi)}
+.hurl{font-family:var(--ff-m);color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hbadge{font-size:10px;font-family:var(--ff-m);font-weight:700;letter-spacing:1px;padding:3px 8px;border-radius:4px;flex-shrink:0}
+.hbadge.p{background:rgba(244,63,94,.12);color:var(--danger)}.hbadge.s{background:rgba(16,185,129,.12);color:var(--safe)}
+
+footer{border-top:1px solid var(--border);padding:18px 40px;display:flex;justify-content:space-between;
+  align-items:center;font-size:11px;color:var(--muted);font-family:var(--ff-m);position:relative;z-index:1}
+
+@media(max-width:600px){
+  nav{padding:14px 18px}.hero{padding:36px 16px 28px}.card{padding:20px 16px}
+  .inp-row{flex-direction:column;padding:10px}.btn-go{width:100%;justify-content:center}
+  .stats{flex-wrap:wrap}.stat{min-width:50%;border-bottom:1px solid var(--border)}
+  .stat:last-child{border-bottom:none}
+  footer{flex-direction:column;gap:6px;padding:14px 18px;text-align:center}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="orb o1"></div><div class="orb o2"></div><div class="orb o3"></div>
+
+  <!-- Nav -->
+  <nav>
+    <div class="logo">
+      <div class="logo-icon">🛡</div>
+      Phish<em>Guard</em>&nbsp;AI
+    </div>
+    <div class="nav-r">
+      <span id="statusDot"></span>
+      <span class="pill pill-acc">96.05% ACCURACY</span>
+      <span class="pill pill-mod">GRADIENT BOOSTING</span>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero">
+    <span class="eyebrow">Trained · 11,430 URLs · 87 Features · Real Model</span>
+    <h1><span>Detect</span> <em>Phishing</em><br><span>Before It Strikes</span></h1>
+    <p class="sub">Paste any URL. The actual trained Gradient Boosting model analyzes it using 87 features and tells you if it's phishing or legitimate.</p>
+
+    <!-- Server connection banner -->
+    <div class="server-banner connecting" id="serverBanner">
+      <span style="font-size:16px;flex-shrink:0">⏳</span>
+      <span id="bannerMsg">Connecting to Flask backend at <strong>localhost:5000</strong>...</span>
+    </div>
+
+    <!-- Main card -->
+    <div class="card" id="mainCard">
+      <label class="inp-label" for="urlInput">↗ Enter URL to check</label>
+      <div class="inp-row">
+        <span class="inp-pre">url://</span>
+        <input type="text" id="urlInput"
+          placeholder="https://www.example.com  — paste any URL here"
+          autocomplete="off" spellcheck="false"/>
+        <button class="btn-go" id="checkBtn" onclick="analyze()">
+          <span id="btnTxt">Analyze</span><span>→</span>
+        </button>
+      </div>
+
+      <div class="quick-row">
+        <span class="ql">Try:</span>
+        <button class="qb" onclick="go('https://www.google.com')">google.com</button>
+        <button class="qb" onclick="go('https://www.github.com')">github.com</button>
+        <button class="qb" onclick="go('https://www.amazon.com')">amazon.com</button>
+        <button class="qb" onclick="go('https://www.wikipedia.org')">wikipedia.org</button>
+        <button class="qb bad" onclick="go('http://192.168.1.1/login/secure/verify?user=admin&pass=abc')">suspicious IP</button>
+        <button class="qb bad" onclick="go('http://paypal-secure-login.account-verify.com/update?token=xyz')">fake paypal</button>
+        <button class="qb bad" onclick="go('http://appleid.apple.com.phishing-test.ru/signin?id=123')">fake apple</button>
+      </div>
+
+      <!-- Result -->
+      <div id="resultArea">
+        <div class="sep"></div>
+
+        <div id="loader" class="loader" style="display:none">
+          <div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+          <span id="loaderTxt">Sending to model...</span>
+        </div>
+
+        <div id="verdictArea" style="display:none">
+          <!-- Analyzed URL with color coding -->
+          <div class="url-box" id="urlBox"></div>
+
+          <!-- Main verdict -->
+          <div class="verdict" id="verdictCard">
+            <div class="v-icon" id="vIcon"></div>
+            <div>
+              <div class="v-title" id="vTitle"></div>
+              <div class="v-desc"  id="vDesc"></div>
+            </div>
+          </div>
+
+          <!-- Risk bar -->
+          <div class="conf-wrap">
+            <div class="conf-labels">
+              <span>Phishing Risk (model probability)</span>
+              <span id="confPct" style="font-weight:700">—</span>
+            </div>
+            <div class="conf-bar"><div class="conf-fill" id="confFill"></div></div>
+          </div>
+
+          <!-- Feature signals -->
+          <div class="sig-heading">Key Signals from Model</div>
+          <div class="sig-grid" id="sigGrid"></div>
+        </div>
+
+        <div id="errorBox" class="error-box" style="display:none"></div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats">
+      <div class="stat"><span class="snum" id="sCk">0</span><span class="slbl">Checked</span></div>
+      <div class="stat"><span class="snum" id="sPh">0</span><span class="slbl">Phishing</span></div>
+      <div class="stat"><span class="snum" id="sSf">0</span><span class="slbl">Safe</span></div>
+      <div class="stat"><span class="snum">96.05%</span><span class="slbl">Model Acc.</span></div>
+    </div>
+
+    <!-- History -->
+    <div class="hist-wrap" id="histWrap" style="display:none">
+      <div class="hist-head">Recent Checks</div>
+      <div class="hist-list" id="histList"></div>
+    </div>
+
+  </section>
+
+  <footer>
+    <span>PhishGuard AI — Phishing Detection System</span>
+    <span>Model: Gradient Boosting · 96.05% Acc · ROC-AUC 0.9922 · 87 features</span>
+  </footer>
+</div>
+
+<script>
+// ── Config ────────────────────────────────────────────────────
+const API = 'http://127.0.0.1:5000';
+
+// ── State ─────────────────────────────────────────────────────
+let nCk=0, nPh=0, nSf=0;
+const hist=[];
+
+// ── DOM helpers ───────────────────────────────────────────────
+const $  = id => document.getElementById(id);
+
+// ── Check backend on load ─────────────────────────────────────
+async function checkServer(){
+  try{
+    const r = await fetch(`${API}/health`, {signal: AbortSignal.timeout(3000)});
+    const d = await r.json();
+    if(d.model_loaded){
+      setBanner('connected',
+        `✅ <strong>Flask backend connected.</strong> Model: <strong>${d.model_type}</strong> is loaded and ready.`);
+      $('statusDot').className='ok';
+    } else {
+      setBanner('offline',
+        `⚠️ <strong>Backend running but model.pkl not found.</strong> Place model.pkl in the <code>model/</code> folder and restart app.py`);
+      $('statusDot').className='err';
+    }
+  } catch(e){
+    setBanner('offline',
+      `❌ <strong>Flask backend not running.</strong> Open terminal → go to project folder → run: <code>python backend/app.py</code>`);
+    $('statusDot').className='err';
+  }
+}
+function setBanner(type, msg){
+  const b=$('serverBanner');
+  b.className=`server-banner ${type}`;
+  $('bannerMsg').innerHTML=msg;
+}
+
+// ── URL color breakdown ───────────────────────────────────────
+function colorURL(url){
+  if(!/^https?:\/\//i.test(url)) url='http://'+url;
+  let p; try{p=new URL(url);}catch(e){return `<span>${url}</span>`;}
+  const sus=['login','signin','account','verify','secure','paypal','bank','confirm','update'];
+  let dom = p.hostname;
+  sus.forEach(kw=>{ dom=dom.replace(new RegExp(kw,'gi'),m=>`<span class="u-sus">${m}</span>`); });
+  return `<span class="u-scheme">${p.protocol}//</span><span class="u-domain">${dom}</span><span class="u-path">${p.pathname}</span><span class="u-query">${p.search}</span>`;
+}
+
+// ── Main analyze — calls real Flask API ───────────────────────
+async function analyze(){
+  const raw = $('urlInput').value.trim();
+  if(!raw) return;
+
+  $('resultArea').style.display='block';
+  $('loader').style.display='flex';
+  $('verdictArea').style.display='none';
+  $('errorBox').style.display='none';
+  $('checkBtn').disabled=true;
+  $('btnTxt').textContent='Analyzing';
+
+  const steps=['Extracting 87 features...','Running Gradient Boosting...','Computing probability...','Finalizing result...'];
+  let si=0;
+  const tick=setInterval(()=>{ $('loaderTxt').textContent=steps[Math.min(si++,steps.length-1)]; }, 500);
+
+  try{
+    // ── POST to real Flask /predict endpoint ──────────────────
+    const resp = await fetch(`${API}/predict`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({url: raw}),
+      signal: AbortSignal.timeout(15000),
+    });
+
+    clearInterval(tick);
+    const data = await resp.json();
+
+    if(!resp.ok || data.error){
+      throw new Error(data.error || `Server error ${resp.status}`);
+    }
+
+    // ── Render result ─────────────────────────────────────────
+    $('loader').style.display='none';
+    $('verdictArea').style.display='block';
+
+    const isPhishing = data.label === 1;  // 1=phishing, 0=legitimate
+    const riskScore  = data.risk_score;   // 0–100, phishing probability %
+    const conf       = Math.round(data.confidence * 100);
+
+    // Stats
+    nCk++; if(isPhishing) nPh++; else nSf++;
+    $('sCk').textContent=nCk; $('sPh').textContent=nPh; $('sSf').textContent=nSf;
+
+    // Card border
+    $('mainCard').className=`card ${isPhishing?'is-phishing':'is-safe'}`;
+
+    // URL display
+    $('urlBox').innerHTML=colorURL(raw);
+
+    // Verdict
+    const cls=isPhishing?'phishing':'safe';
+    $('verdictCard').className=`verdict ${cls}`;
+    $('vIcon').className=`v-icon ${cls}`;
+    $('vIcon').textContent=isPhishing?'⚠':'✓';
+    $('vTitle').className=`v-title ${cls}`;
+
+    if(isPhishing){
+      $('vTitle').textContent='⚠ Phishing Website Detected';
+      $('vDesc').textContent=`The model predicts this is a phishing site with ${riskScore}% confidence. DO NOT enter any login credentials, passwords, or payment details. Close this tab immediately.`;
+    } else {
+      $('vTitle').textContent='✓ Legitimate Website';
+      $('vDesc').textContent=`The model classifies this as a legitimate site with ${conf}% confidence. Risk score: ${riskScore}%. Always verify the domain name before entering sensitive information.`;
+    }
+
+    // Confidence bar — shows phishing probability from model
+    $('confFill').className=`conf-fill ${cls}`;
+    $('confPct').textContent=`${riskScore}% phishing risk`;
+    setTimeout(()=>{ $('confFill').style.width=riskScore+'%'; }, 50);
+
+    // Signal chips from model's top signals
+    const grid=$('sigGrid'); grid.innerHTML='';
+    (data.top_signals||[]).forEach((sig,i)=>{
+      const chip=document.createElement('div');
+      chip.className='sig'; chip.style.animationDelay=(i*.04)+'s';
+      const vc=sig.flag?'bad':'ok';
+      let displayVal = sig.value;
+      if(typeof sig.value==='number' && sig.value%1!==0) displayVal=sig.value.toFixed(2);
+      chip.innerHTML=`<span class="sn">${sig.name}</span><span class="sv ${vc}">${displayVal}</span>`;
+      grid.appendChild(chip);
+    });
+
+    // History
+    const short=raw.length>52?raw.slice(0,52)+'…':raw;
+    hist.unshift({url:short, isPhishing, risk:riskScore});
+    if(hist.length>6) hist.pop();
+    $('histWrap').style.display='block';
+    const hl=$('histList'); hl.innerHTML='';
+    hist.forEach((h,i)=>{
+      const el=document.createElement('div');
+      el.className='hist-item'; el.style.animationDelay=(i*.04)+'s';
+      el.onclick=()=>{ $('urlInput').value=h.url.replace('…',''); };
+      el.innerHTML=`<span class="hurl">${h.url}</span>
+        <span style="font-size:10px;color:var(--muted);font-family:var(--ff-m);margin-right:6px">${h.risk}% risk</span>
+        <span class="hbadge ${h.isPhishing?'p':'s'}">${h.isPhishing?'PHISHING':'SAFE'}</span>`;
+      hl.appendChild(el);
+    });
+
+    $('resultArea').scrollIntoView({behavior:'smooth',block:'nearest'});
+
+  } catch(err){
+    clearInterval(tick);
+    $('loader').style.display='none';
+    $('errorBox').style.display='block';
+
+    if(err.name==='TimeoutError' || err.message.includes('fetch')){
+      $('errorBox').textContent='❌ Cannot reach Flask backend. Make sure app.py is running: python backend/app.py';
+      setBanner('offline','❌ <strong>Backend not reachable.</strong> Run: <code>python backend/app.py</code> in terminal.');
+      $('statusDot').className='err';
+    } else {
+      $('errorBox').textContent=`❌ Error: ${err.message}`;
+    }
+  }
+
+  $('checkBtn').disabled=false;
+  $('btnTxt').textContent='Analyze';
+}
+
+// ── Helpers ───────────────────────────────────────────────────
+function go(url){ $('urlInput').value=url; analyze(); }
+$('urlInput').addEventListener('keydown', e=>{ if(e.key==='Enter') analyze(); });
+$('urlInput').addEventListener('paste',   ()=>{ setTimeout(analyze,250); });
+
+// ── Init ──────────────────────────────────────────────────────
+checkServer();
+setInterval(checkServer, 15000);  // recheck every 15s
+</script>
+</body>
+</html>
